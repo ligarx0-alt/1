@@ -10,29 +10,24 @@ $success = '';
 
 // Handle admin login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $csrf = new CSRFToken();
-    if (!$csrf->validate($_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid security token. Please try again.';
-    } else {
-        $email = sanitize($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
+    $username = sanitize($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    
+    // Static admin credentials
+    if ($username === 'admin-blog' && $password === 'admin2025') {
+        // Create admin session
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_username'] = $username;
+        $_SESSION['admin_login_time'] = time();
         
-        // Check admin credentials
-        if ($email === 'admin-sunatullo@gmail.com' && $password === 'admin2025') {
-            // Create admin session
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_email'] = $email;
-            $_SESSION['admin_login_time'] = time();
-            
-            // Log admin login
-            $security->logSecurityEvent('admin_login', 'Admin panel access', $email);
-            
-            header('Location: admin/dashboard.php');
-            exit;
-        } else {
-            $error = 'Invalid admin credentials.';
-            $security->logSecurityEvent('admin_login_failed', 'Failed admin login attempt', $email);
-        }
+        // Log admin login
+        logError("Admin panel access by: $username", 'INFO');
+        
+        header('Location: admin/dashboard.php');
+        exit;
+    } else {
+        $error = 'Invalid admin credentials.';
+        logError("Failed admin login attempt: $username", 'WARNING');
     }
 }
 
@@ -41,8 +36,6 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in']) {
     header('Location: admin/dashboard.php');
     exit;
 }
-
-$csrf = new CSRFToken();
 ?>
 
 <!DOCTYPE html>
@@ -55,7 +48,7 @@ $csrf = new CSRFToken();
     <style>
         /* Beautiful admin panel styling */
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -98,7 +91,7 @@ $csrf = new CSRFToken();
         .admin-logo {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -107,14 +100,14 @@ $csrf = new CSRFToken();
             font-size: 2rem;
             color: white;
             font-weight: bold;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
             animation: pulse 2s ease-in-out infinite;
         }
         
         .admin-title {
             font-size: 2rem;
             font-weight: 800;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -122,7 +115,7 @@ $csrf = new CSRFToken();
         }
         
         .admin-subtitle {
-            color: var(--text-light);
+            color: var(--text-muted);
             font-size: 1rem;
             margin-bottom: 0;
         }
@@ -141,30 +134,30 @@ $csrf = new CSRFToken();
             display: block;
             margin-bottom: 0.5rem;
             font-weight: 600;
-            color: var(--text-color);
+            color: var(--text-primary);
             font-size: 0.95rem;
         }
         
         .form-input {
             width: 100%;
             padding: 1.25rem 1.5rem;
-            border: 2px solid var(--border-color);
+            border: 2px solid var(--border);
             border-radius: 16px;
             font-size: 1rem;
-            background: var(--bg-light);
+            background: var(--bg-secondary);
             transition: all 0.3s ease;
             box-sizing: border-box;
         }
         
         .form-input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
             transform: translateY(-2px);
             outline: none;
         }
         
         .form-input::placeholder {
-            color: var(--text-light);
+            color: var(--text-muted);
         }
         
         .input-icon {
@@ -172,7 +165,7 @@ $csrf = new CSRFToken();
             left: 1.25rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--text-light);
+            color: var(--text-muted);
             font-size: 1.1rem;
             pointer-events: none;
         }
@@ -182,7 +175,7 @@ $csrf = new CSRFToken();
         }
         
         .btn-admin {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             color: white;
             border: none;
             padding: 1.25rem 2rem;
@@ -212,7 +205,7 @@ $csrf = new CSRFToken();
         
         .btn-admin:hover {
             transform: translateY(-2px);
-            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
         }
         
         .btn-admin:active {
@@ -247,24 +240,24 @@ $csrf = new CSRFToken();
         }
         
         .admin-footer a {
-            color: var(--text-light);
+            color: var(--text-muted);
             text-decoration: none;
             font-size: 0.9rem;
             transition: color 0.3s ease;
         }
         
         .admin-footer a:hover {
-            color: #667eea;
+            color: #6366f1;
         }
         
         .security-info {
-            background: rgba(102, 126, 234, 0.1);
-            border: 1px solid rgba(102, 126, 234, 0.2);
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
             border-radius: 12px;
             padding: 1rem;
             margin-top: 1.5rem;
             font-size: 0.9rem;
-            color: var(--text-light);
+            color: var(--text-muted);
             text-align: center;
         }
         
@@ -370,15 +363,13 @@ $csrf = new CSRFToken();
         <?php endif; ?>
         
         <form method="POST" class="admin-form">
-            <input type="hidden" name="csrf_token" value="<?php echo $csrf->generate(); ?>">
-            
             <div class="form-group">
-                <label for="email" class="form-label">📧 Admin Email</label>
+                <label for="username" class="form-label">👤 Admin Username</label>
                 <div style="position: relative;">
                     <span class="input-icon">👤</span>
-                    <input type="email" id="email" name="email" class="form-input with-icon" 
-                           placeholder="Enter admin email address" required 
-                           value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>">
+                    <input type="text" id="username" name="username" class="form-input with-icon" 
+                           placeholder="Enter admin username" required 
+                           value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">
                 </div>
             </div>
             
@@ -398,6 +389,7 @@ $csrf = new CSRFToken();
         
         <div class="security-info">
             🔐 This is a secure admin area. All login attempts are monitored and logged.
+            <br><small>Username: <strong>admin-blog</strong> | Password: <strong>admin2025</strong></small>
         </div>
         
         <div class="admin-footer">

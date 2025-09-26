@@ -548,7 +548,8 @@ try {
     <div class="header">
         <nav class="nav">
             <a href="index.php" class="logo"><?php echo defined('SITE_NAME') ? SITE_NAME : 'My Blog'; ?></a>
-            <ul class="nav-links">
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            <ul class="nav-links" id="navLinks">
                 <li><a href="index.php">🏠 Home</a></li>
                 <?php if (isLoggedIn()): ?>
                     <li><a href="chat.php">💬 Chat</a></li>
@@ -805,6 +806,20 @@ try {
     </div>
 
     <script>
+        function toggleMobileMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+        }
+        
+        // Close mobile nav when clicking outside
+        document.addEventListener('click', function(e) {
+            const nav = document.querySelector('.nav');
+            const navLinks = document.getElementById('navLinks');
+            if (!nav.contains(e.target)) {
+                navLinks.classList.remove('active');
+            }
+        });
+        
         document.addEventListener('DOMContentLoaded', function() {
             try {
                 // Smooth scroll for anchor links

@@ -58,19 +58,44 @@ try {
         }
     }
     
-    // Get recent messages
+    // Handle AJAX requests for loading messages
+    if (isset($_GET['load_messages'])) {
+        $offset = (int)($_GET['offset'] ?? 0);
+        $limit = 100;
+        
+        $stmt = $db->prepare("
+            SELECT cm.*, u.username, u.profile_image, 
+                   DATE_FORMAT(cm.created_at, '%H:%i') as time,
+                   DATE_FORMAT(cm.created_at, '%Y-%m-%d') as date
+            FROM chat_messages cm 
+            JOIN users u ON cm.user_id = u.id 
+            ORDER BY cm.created_at DESC 
+            LIMIT ? OFFSET ?
+        ");
+        $stmt->execute([$limit, $offset]);
+        $messages = array_reverse($stmt->fetchAll());
+        
+        header('Content-Type: application/json');
+        echo json_encode($messages);
+        exit;
+    }
+    
+    // Get initial messages (latest 100)
     $stmt = $db->prepare("
         SELECT cm.*, u.username, u.profile_image, 
                DATE_FORMAT(cm.created_at, '%H:%i') as time,
                DATE_FORMAT(cm.created_at, '%Y-%m-%d') as date
         FROM chat_messages cm 
         JOIN users u ON cm.user_id = u.id 
-        WHERE cm.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
         ORDER BY cm.created_at DESC 
         LIMIT 100
     ");
     $stmt->execute();
     $messages = array_reverse($stmt->fetchAll());
+    
+    // Get total message count for infinite scroll
+    $stmt = $db->query("SELECT COUNT(*) as total FROM chat_messages");
+    $total_messages = $stmt->fetch()['total'];
     
     // Get online users (active in last 5 minutes)
     $stmt = $db->prepare("
@@ -87,6 +112,7 @@ try {
     error_log("Chat error: " . $e->getMessage());
     $messages = [];
     $online_users = [];
+    $total_messages = 0;
     $error_message = "Chat system is temporarily unavailable. Please try again later.";
 }
 ?>
@@ -98,88 +124,12 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>💬 Chat - <?php echo SITE_NAME; ?></title>
     <link rel="stylesheet" href="assets/style.css">
-    <style>
-        /* Enhanced mobile-responsive chat design */
-        .mobile-nav-toggle {
-            display: none;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-        }
-        
-        @media (max-width: 768px) {
-            .nav {
-                position: relative;
-            }
-            
-            .mobile-nav-toggle {
-                display: block;
-            }
-            
-            .nav-links {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: var(--gradient-primary);
-                flex-direction: column;
-                padding: 1rem;
-                border-radius: 0 0 16px 16px;
-                box-shadow: var(--shadow-lg);
-                transform: translateY(-100%);
-                opacity: 0;
-                visibility: hidden;
-                transition: all 0.3s ease;
-            }
-            
-            .nav-links.active {
-                transform: translateY(0);
-                opacity: 1;
-                visibility: visible;
-            }
-            
-            .chat-container {
-                grid-template-columns: 1fr;
-                height: calc(100vh - 160px);
-                padding: 1rem;
-                gap: 1rem;
-            }
-            
-            .online-users {
-                order: -1;
-                max-height: 150px;
-                overflow-y: auto;
-                padding: 1rem;
-            }
-            
-            .chat-header h2 {
-                font-size: 1.5rem;
-            }
-            
-            .message-content {
-                max-width: 90%;
-            }
-            
-            .input-group {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-            
-            .send-btn {
-                align-self: stretch;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="header">
         <nav class="nav">
             <a href="index.php" class="logo"><?php echo SITE_NAME; ?></a>
-             Added mobile navigation toggle 
-            <button class="mobile-nav-toggle" onclick="toggleMobileNav()">☰</button>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
             <ul class="nav-links" id="navLinks">
                 <li><a href="index.php">🏠 Home</a></li>
                 <?php if ($is_logged_in): ?>
@@ -205,7 +155,7 @@ try {
             </div>
             
             <?php if (!$is_logged_in): ?>
-                <div class="login-notice">
+                <div class="alert alert-info" style="margin: 1rem;">
                     <p>You are viewing the chat as a guest. <a href="auth/login.php">Login</a> or <a href="auth/register.php">Register</a> to participate in the conversation!</p>
                 </div>
             <?php endif; ?>
@@ -217,6 +167,10 @@ try {
             <?php endif; ?>
             
             <div class="chat-messages" id="chatMessages">
+                <div id="loadMoreBtn" class="loading-messages" style="display: none;">
+                    <button onclick="loadMoreMessages()" class="btn btn-secondary">Load More Messages</button>
+                </div>
+                
                 <?php if (empty($messages)): ?>
                     <div style="text-align: center; color: #64748b; padding: 40px;">
                         <div style="font-size: 3em; margin-bottom: 16px;">💬</div>
@@ -224,19 +178,21 @@ try {
                         <p>Be the first to start the conversation!</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($messages as $msg): ?>
-                        <div class="message <?php echo ($is_logged_in && $msg['user_id'] == $user_id) ? 'own' : ''; ?>">
-                            <img src="<?php echo htmlspecialchars($msg['profile_image'] ?: 'assets/default-avatar.jpg'); ?>" 
-                                 alt="Avatar" class="message-avatar">
-                            <div class="message-content">
-                                <div class="message-header">
-                                    <span class="message-username"><?php echo htmlspecialchars($msg['username']); ?></span>
-                                    <span class="message-time"><?php echo $msg['time']; ?></span>
+                    <div id="messagesContainer">
+                        <?php foreach ($messages as $msg): ?>
+                            <div class="message <?php echo ($is_logged_in && $msg['user_id'] == $user_id) ? 'own' : ''; ?>">
+                                <img src="<?php echo htmlspecialchars($msg['profile_image'] ?: 'assets/default-avatar.jpg'); ?>" 
+                                     alt="Avatar" class="message-avatar">
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <span class="message-username"><?php echo htmlspecialchars($msg['username']); ?></span>
+                                        <span class="message-time"><?php echo $msg['time']; ?></span>
+                                    </div>
+                                    <div class="message-text"><?php echo nl2br(htmlspecialchars($msg['message'])); ?></div>
                                 </div>
-                                <div class="message-text"><?php echo nl2br(htmlspecialchars($msg['message'])); ?></div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
             
@@ -277,7 +233,11 @@ try {
     </div>
     
     <script>
-        function toggleMobileNav() {
+        let currentOffset = <?php echo count($messages); ?>;
+        let totalMessages = <?php echo $total_messages; ?>;
+        let isLoading = false;
+        
+        function toggleMobileMenu() {
             const navLinks = document.getElementById('navLinks');
             navLinks.classList.toggle('active');
         }
@@ -297,6 +257,69 @@ try {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
+        // Show load more button if there are more messages
+        if (currentOffset < totalMessages) {
+            document.getElementById('loadMoreBtn').style.display = 'block';
+        }
+        
+        // Load more messages function
+        function loadMoreMessages() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            const loadBtn = document.querySelector('#loadMoreBtn button');
+            loadBtn.innerHTML = 'Loading...';
+            loadBtn.disabled = true;
+            
+            fetch(`chat.php?load_messages=1&offset=${currentOffset}`)
+                .then(response => response.json())
+                .then(messages => {
+                    if (messages.length > 0) {
+                        const messagesContainer = document.getElementById('messagesContainer');
+                        const scrollHeight = chatMessages.scrollHeight;
+                        
+                        // Add new messages at the top
+                        messages.forEach(msg => {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = `message ${msg.user_id == <?php echo $user_id ?? 0; ?> ? 'own' : ''}`;
+                            messageDiv.innerHTML = `
+                                <img src="${msg.profile_image || 'assets/default-avatar.jpg'}" alt="Avatar" class="message-avatar">
+                                <div class="message-content">
+                                    <div class="message-header">
+                                        <span class="message-username">${msg.username}</span>
+                                        <span class="message-time">${msg.time}</span>
+                                    </div>
+                                    <div class="message-text">${msg.message.replace(/\n/g, '<br>')}</div>
+                                </div>
+                            `;
+                            messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+                        });
+                        
+                        currentOffset += messages.length;
+                        
+                        // Maintain scroll position
+                        chatMessages.scrollTop = chatMessages.scrollHeight - scrollHeight;
+                        
+                        // Hide load more button if no more messages
+                        if (currentOffset >= totalMessages) {
+                            document.getElementById('loadMoreBtn').style.display = 'none';
+                        }
+                    } else {
+                        document.getElementById('loadMoreBtn').style.display = 'none';
+                    }
+                    
+                    isLoading = false;
+                    loadBtn.innerHTML = 'Load More Messages';
+                    loadBtn.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                    isLoading = false;
+                    loadBtn.innerHTML = 'Load More Messages';
+                    loadBtn.disabled = false;
+                });
+        }
+        
         // Auto-resize textarea
         const textarea = document.querySelector('.message-input:not([disabled])');
         if (textarea) {
@@ -313,6 +336,13 @@ try {
                 }
             });
         }
+        
+        // Auto-refresh messages every 30 seconds
+        setInterval(function() {
+            if (!isLoading) {
+                location.reload();
+            }
+        }, 30000);
         
         console.log('[v0] Chat page loaded successfully');
     </script>
