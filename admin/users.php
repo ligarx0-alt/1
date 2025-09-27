@@ -2,8 +2,8 @@
 require_once '../config/config.php';
 require_once '../includes/security.php';
 
-if (!isLoggedIn() || !isAdmin()) {
-    redirectTo('../auth/login.php');
+if (!isset($_SESSION['admin_logged_in']) || !$_SESSION['admin_logged_in']) {
+    redirectTo('../panel.php');
 }
 
 $security = new Security();

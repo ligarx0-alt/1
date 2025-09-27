@@ -38,14 +38,6 @@ try {
         if (!empty($message) && strlen($message) <= 1000) {
             $message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
             
-            $db->exec("CREATE TABLE IF NOT EXISTS chat_messages (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )");
-            
             $stmt = $db->prepare("INSERT INTO chat_messages (user_id, message, created_at) VALUES (?, ?, NOW())");
             $stmt->execute([$user_id, $message]);
             

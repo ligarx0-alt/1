@@ -2,10 +2,9 @@
 require_once '../config/config.php';
 require_once '../includes/security.php';
 
+// Check admin access
 if (!isset($_SESSION['admin_logged_in']) || !$_SESSION['admin_logged_in']) {
-    if (!isLoggedIn() || !isAdmin()) {
-        redirectTo('../panel.php');
-    }
+    redirectTo('../panel.php');
 }
 
 $security = new Security();

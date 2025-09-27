@@ -54,7 +54,7 @@ class EmailVerification {
             $expiresAt = date('Y-m-d H:i:s', time() + 300); // 5 minutes
             
             // Store verification code
-            $stmt = $this->db->prepare("INSERT INTO email_verifications (email, verification_code, code_type, expires_at) VALUES (?, ?, ?, ?)");
+            $stmt = $this->db->prepare("INSERT INTO email_verifications (email, code, type, expires_at) VALUES (?, ?, ?, ?)");
             $stmt->execute([$email, $code, $type, $expiresAt]);
             
             // Send email
@@ -71,13 +71,13 @@ class EmailVerification {
     // Verify code
     public function verifyCode($email, $code, $type = 'registration') {
         try {
-            $stmt = $this->db->prepare("SELECT * FROM email_verifications WHERE email = ? AND verification_code = ? AND code_type = ? AND expires_at > NOW() AND is_used = 0");
+            $stmt = $this->db->prepare("SELECT * FROM email_verifications WHERE email = ? AND code = ? AND type = ? AND expires_at > NOW() AND used = 0");
             $stmt->execute([$email, $code, $type]);
             $verification = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($verification) {
                 // Mark as used
-                $updateStmt = $this->db->prepare("UPDATE email_verifications SET is_used = 1 WHERE id = ?");
+                $updateStmt = $this->db->prepare("UPDATE email_verifications SET used = 1 WHERE id = ?");
                 $updateStmt->execute([$verification['id']]);
                 
                 return ['success' => true, 'message' => 'Kod tasdiqlandi'];

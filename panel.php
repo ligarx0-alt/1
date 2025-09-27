@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once 'config/config.php';
 require_once 'includes/security.php';
 
@@ -19,6 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_username'] = $username;
         $_SESSION['admin_login_time'] = time();
+        $_SESSION['user_id'] = 1; // Set admin user ID
+        $_SESSION['username'] = 'admin';
+        $_SESSION['is_admin'] = true;
         
         // Log admin login
         logError("Admin panel access by: $username", 'INFO');

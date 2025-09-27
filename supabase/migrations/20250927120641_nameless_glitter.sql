@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin TINYINT(1) DEFAULT 0,
     is_banned TINYINT(1) DEFAULT 0,
     email_verified TINYINT(1) DEFAULT 0,
+    verification_code VARCHAR(6),
+    verification_expires TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP NULL,
     INDEX idx_username (username),
@@ -193,15 +195,16 @@ CREATE TABLE IF NOT EXISTS secure_sessions (
 );
 
 -- Insert admin user with specified credentials
-INSERT INTO users (username, email, password, is_admin, email_verified) VALUES 
-('admin', 'admin-sunatullo@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, 1)
+INSERT INTO users (username, email, password, is_admin, email_verified, verification_code) VALUES 
+('admin', 'admin-sunatullo@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, 1, NULL)
 ON DUPLICATE KEY UPDATE 
     email = 'admin-sunatullo@gmail.com',
     is_admin = 1,
-    email_verified = 1;
+    email_verified = 1,
+    verification_code = NULL;
 
 -- Sample data for testing with beautiful post
-INSERT INTO posts (title, slug, content, keywords, author_id, status, featured_image) VALUES 
+INSERT INTO posts (title, slug, content, keywords, author_id, status) VALUES 
 ('🚀 Complete Web Development Guide 2025', 'complete-web-development-guide-2025', 
 '<div style="text-align: center; margin-bottom: 2rem;">
     <img src="https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" alt="Web Development" style="width: 100%; max-width: 800px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
@@ -322,7 +325,7 @@ function startDownload() {
     <h4 style="color: #0369a1; margin-bottom: 1rem;">💡 Pro Tip</h4>
     <p style="color: #0c4a6e; margin: 0;">Join our community of developers and get access to exclusive tutorials, code reviews, and career guidance. Follow us on social media for daily tips and updates!</p>
 </div>', 
-'web development, programming, javascript, html, css, tutorial, 2025, guide, coding, frontend, backend', 1, 'published', 'web-dev-hero.jpg'),
+'web development, programming, javascript, html, css, tutorial, 2025, guide, coding, frontend, backend', 1, 'published'),
 
 ('Getting Started with Our Blog', 'getting-started-guide', 
 '<h2>Welcome to Our Amazing Blog Platform!</h2>
@@ -341,7 +344,7 @@ function startDownload() {
     <li>Monitor security and view analytics</li>
     <li>Access advanced admin features</li>
 </ul>', 
-'guide, tutorial, help, blog, getting started', 1, 'published', NULL)
+'guide, tutorial, help, blog, getting started', 1, 'published')
 ON DUPLICATE KEY UPDATE title=title;
 
 -- Sample chat messages
